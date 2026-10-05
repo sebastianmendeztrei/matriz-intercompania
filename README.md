@@ -2,6 +2,8 @@
 
 Portal interno para generar la matriz de cruces de cuentas intercompañía del Grupo VCB (TREI Inmobiliaria y sociedades relacionadas).
 
+**Producción:** proyecto Vercel [`matriz-intercompania`](https://vercel.com/sebastianmendeztrei/matriz-intercompania) · deploy automático desde `main`.
+
 ## Qué hace
 
 - Lee en vivo los movimientos de las **9 empresas con libro propio** desde Supabase (que replica Softland).
