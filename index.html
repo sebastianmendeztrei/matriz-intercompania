@@ -1,0 +1,703 @@
+<title>Matriz Intercompañía</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap">
+<style>
+/* Design system Trei: nav negro, cards blancas con franja/rojo de acento, section-titles rojos UPPERCASE con tracking,
+   tabla con header negro + texto blanco, KPI tiles con franja izquierda de color categórico */
+:root {
+  --rojo-trei: #E1093F;
+  --rojo-trei-fondo: #fff5f7;
+  --negro-trei: #111111;
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --rule: #e4e4e8;
+  --rule-soft: #f0f0f2;
+  --ink: #111111;
+  --ink-2: #555555;
+  --ink-3: #666666;
+  --ink-4: #888888;
+  --ink-5: #999999;
+  --ink-6: #aaaaaa;
+  --verde-exito: #006400;
+  --verde-ok: #00B050;
+  --ambar: #f0b429;
+  --ambar-bg: #fff9e6;
+  --critico: #c00030;
+  --excel: #1D6F42;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Ubuntu", Calibri, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* === NAV SUPERIOR === */
+.topnav {
+  background: var(--negro-trei);
+  color: #fff;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 56px;
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--rojo-trei);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+.brand span.name { font-weight: 500; letter-spacing: 0.01em; }
+.nav-tabs {
+  display: flex;
+  gap: 0;
+  margin-left: 20px;
+  height: 100%;
+}
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 18px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #cfcfcf;
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  height: 100%;
+}
+.nav-tab.active {
+  color: #fff;
+  border-bottom-color: var(--rojo-trei);
+}
+.nav-right {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-6);
+  letter-spacing: 0.04em;
+}
+
+/* === PAGE === */
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 24px 80px;
+}
+
+.crumbs {
+  font-size: 11px;
+  color: var(--ink-4);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+.crumbs a { color: var(--ink-4); text-decoration: none; }
+.crumbs .sep { margin: 0 8px; color: var(--ink-6); }
+
+h1 {
+  font-family: "Ubuntu", Calibri, sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: -0.005em;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+.lede {
+  color: var(--ink-2);
+  font-size: 13px;
+  max-width: 72ch;
+  margin: 0 0 28px;
+}
+
+/* === KPI tiles === */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin: 0 0 32px;
+}
+@media (max-width: 820px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 420px) { .kpi-row { grid-template-columns: 1fr; } }
+
+.kpi {
+  background: var(--surface);
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  padding: 14px 16px 14px 20px;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+.kpi::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--ink-6);
+}
+.kpi.ok::before { background: var(--verde-ok); }
+.kpi.warn::before { background: var(--ambar); }
+.kpi.critico::before { background: var(--rojo-trei); }
+.kpi-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  margin: 0 0 6px;
+}
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-value.ok { color: var(--verde-exito); }
+.kpi-value.critico { color: var(--rojo-trei); }
+.kpi-note {
+  font-size: 11px;
+  color: var(--ink-4);
+  margin-top: 4px;
+}
+
+/* === Section === */
+.section-block { margin: 0 0 36px; }
+.section-title {
+  color: var(--rojo-trei);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid var(--rojo-trei);
+}
+.section-sub {
+  color: var(--ink-2);
+  font-size: 13px;
+  margin: 0 0 16px;
+  max-width: 78ch;
+}
+
+/* === Proj-box === */
+.projbox {
+  background: var(--surface);
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  padding: 18px 20px;
+}
+.projbox h3 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rule-soft);
+  color: var(--ink);
+}
+
+/* === Tabla === */
+.table-wrap {
+  overflow-x: auto;
+  min-width: 0;
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  background: var(--surface);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+thead th {
+  background: var(--negro-trei);
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  text-align: right;
+}
+thead th:first-child { text-align: left; }
+tbody td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--rule-soft);
+  text-align: right;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #fafafa; }
+tbody td:first-child {
+  text-align: left;
+  color: var(--ink);
+  font-weight: 500;
+}
+td small {
+  display: block;
+  font-weight: 400;
+  color: var(--ink-5);
+  font-size: 11px;
+  margin-top: 2px;
+}
+td.total {
+  font-weight: 700;
+  color: var(--ink);
+}
+td.total.critico { color: var(--rojo-trei); }
+td.total.ok { color: var(--verde-exito); }
+
+td input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  text-align: right;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+td input:focus {
+  outline: 1.5px solid var(--rojo-trei);
+  background: var(--rojo-trei-fondo);
+}
+
+.saved-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--verde-exito);
+  background: #e8f3eb;
+  padding: 3px 8px;
+  border-radius: 10px;
+  margin-left: 10px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  vertical-align: 2px;
+}
+.saved-pill.show { opacity: 1; }
+
+/* === Ajustes === */
+.ajuste-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 1fr 0.8fr auto;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule-soft);
+  align-items: center;
+}
+.ajuste-row:last-of-type { border-bottom: none; padding-bottom: 4px; }
+@media (max-width: 640px) {
+  .ajuste-row { grid-template-columns: 1fr 1fr; }
+}
+.ajuste-row select,
+.ajuste-row input {
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  min-width: 0;
+}
+.ajuste-row input[type="number"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ajuste-row select:focus,
+.ajuste-row input:focus {
+  outline: 1.5px solid var(--rojo-trei);
+  border-color: var(--rojo-trei);
+}
+.empty-state {
+  padding: 20px 0 10px;
+  color: var(--ink-5);
+  font-size: 12px;
+  font-style: italic;
+}
+.btn-remove {
+  background: transparent;
+  border: none;
+  color: var(--ink-5);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.btn-remove:hover { color: var(--rojo-trei); background: var(--rojo-trei-fondo); }
+.btn-add {
+  margin-top: 14px;
+  background: transparent;
+  border: 1px dashed var(--rule);
+  color: var(--ink-3);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+}
+.btn-add:hover { border-color: var(--rojo-trei); color: var(--rojo-trei); background: var(--rojo-trei-fondo); }
+
+/* === Caja de alerta === */
+.alert-box {
+  background: var(--ambar-bg);
+  border-left: 4px solid var(--ambar);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin: 0 0 16px;
+}
+.alert-box strong { color: var(--ink); }
+
+/* === Generar === */
+.generate-box {
+  background: var(--surface);
+  border: 1.5px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  padding: 22px 24px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: center;
+}
+@media (max-width: 640px) { .generate-box { grid-template-columns: 1fr; } }
+.generate-info h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--ink);
+  padding: 0;
+  border: none;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.generate-info p {
+  color: var(--ink-3);
+  font-size: 12px;
+  margin: 0;
+}
+.date-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.date-field input {
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12.5px;
+}
+.btn-cta {
+  background: var(--rojo-trei);
+  color: #fff;
+  border: none;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 14px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-cta:hover { background: #c00030; }
+.btn-cta:focus-visible { outline: 2px solid var(--rojo-trei); outline-offset: 2px; }
+
+/* === Footer / historial === */
+.last-run {
+  margin-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--ink-4);
+  letter-spacing: 0.04em;
+}
+.last-run strong { color: var(--ink); font-weight: 500; }
+.last-run a { color: var(--excel); text-decoration: underline; text-decoration-color: var(--rule); font-weight: 500; }
+.last-run a:hover { text-decoration-color: var(--excel); }
+.nota {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ink-5);
+  margin-top: 10px;
+}
+</style>
+
+<nav class="topnav">
+  <div class="brand">
+    <span class="brand-mark">trei</span>
+    <span class="name">Control de Gestión</span>
+  </div>
+  <div class="nav-tabs">
+    <a href="#" class="nav-tab">Gestión Ventas</a>
+    <a href="#" class="nav-tab">Proyectos</a>
+    <a href="#" class="nav-tab active">Contabilidad</a>
+  </div>
+  <div class="nav-right">Carolina V. · Analista</div>
+</nav>
+
+<div class="page">
+
+  <p class="crumbs"><a href="#">Contabilidad</a> <span class="sep">›</span> Matriz intercompañía</p>
+  <h1>Matriz de cruces intercompañía — Grupo VCB</h1>
+  <p class="lede">Las 9 empresas con libro propio se leen en vivo desde Softland. Aquí solo mantienes los saldos de las 15 excluidas por posventa — una vez, y después solo cuando algo cambia.</p>
+
+  <!-- KPIs de estado -->
+  <div class="kpi-row">
+    <div class="kpi ok">
+      <p class="kpi-label">Softland en línea</p>
+      <div class="kpi-value">9<span style="font-size:16px;color:var(--ink-4);font-weight:400;"> / 9</span></div>
+      <div class="kpi-note">Última sync: hoy, 11:42</div>
+    </div>
+    <div class="kpi ok">
+      <p class="kpi-label">Saldos base cargados</p>
+      <div class="kpi-value">15<span style="font-size:16px;color:var(--ink-4);font-weight:400;"> / 15</span></div>
+      <div class="kpi-note">Al 30-jun-2026</div>
+    </div>
+    <div class="kpi">
+      <p class="kpi-label">Ajustes del período</p>
+      <div class="kpi-value">0</div>
+      <div class="kpi-note">Sin movimiento desde 1-jul</div>
+    </div>
+    <div class="kpi warn">
+      <p class="kpi-label">Descuadres a revisar</p>
+      <div class="kpi-value" style="color:var(--ambar);">3</div>
+      <div class="kpi-note">Pares con diferencia &gt; $1 MM</div>
+    </div>
+  </div>
+
+  <!-- SECCIÓN 1 -->
+  <section class="section-block">
+    <div class="section-title">01 · Saldos base — empresas excluidas <span class="saved-pill" id="saved1">Guardado</span></div>
+    <p class="section-sub">Saldo neto al 30-jun-2026 que cada empresa de posventa declaraba contra el grupo. Positivo = por cobrar · negativo = por pagar. Edita cualquier celda, se guarda sola.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Empresa excluida</th>
+            <th>VCB Constructora</th>
+            <th>VCB Inversiones</th>
+            <th>TREI</th>
+            <th>Resto del grupo</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="tblBase"></tbody>
+      </table>
+    </div>
+    <p class="nota">Los valores actuales son los que Carolina cargó el 30-jun-2026. Cada edición queda guardada en el histórico.</p>
+  </section>
+
+  <!-- SECCIÓN 2 -->
+  <section class="section-block">
+    <div class="section-title">02 · Ajustes del período</div>
+    <p class="section-sub">Solo si alguna de las 15 excluidas tuvo movimiento desde el 1-jul-2026. Lo normal es que esté vacío.</p>
+
+    <div class="projbox">
+      <h3>Ajustes registrados</h3>
+      <div id="ajustesList">
+        <div class="empty-state" id="emptyAdj">No hay ajustes registrados. Las 15 excluidas mantienen sus saldos de junio.</div>
+      </div>
+      <button class="btn-add" id="btnAdd">+ Agregar ajuste</button>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 3 -->
+  <section class="section-block">
+    <div class="section-title">03 · Generar Excel</div>
+    <p class="section-sub">Cruza en vivo los movimientos de Softland con los saldos base y los ajustes. El archivo se descarga apenas termina.</p>
+
+    <div class="alert-box">
+      ⚠ <strong>Antes de generar:</strong> si cargaste comprobantes nuevos en Softland en los últimos minutos, espera la próxima sync (cada 15 min) o aprieta <em>sync ahora</em> arriba.
+    </div>
+
+    <div class="generate-box">
+      <div class="generate-info">
+        <h3>Matriz al día de hoy</h3>
+        <p>Filtros aplicados: comprobantes vigentes · solo norma tributaria · neteo CxC / CxP por par</p>
+        <div class="date-field">
+          <label for="corte">Fecha de corte:</label>
+          <input type="date" id="corte">
+        </div>
+      </div>
+      <button class="btn-cta" id="btnGen">📊 Generar matriz</button>
+    </div>
+
+    <div class="last-run">
+      <span>Última matriz: <strong>29-sep-2026, 14:22</strong> · <a href="#">↓ Descargar de nuevo</a></span>
+      <a href="#">Ver historial completo →</a>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const excluidas = [
+  { id:"Q2",    nombre:"Inmobiliaria Q2 SpA",     vcb1:0,          vcb2:-45000000,  trei:-12000000,  resto:0 },
+  { id:"Q3",    nombre:"Inmobiliaria Q3 SpA",     vcb1:8500000,    vcb2:-18200000,  trei:0,          resto:0 },
+  { id:"Q4",    nombre:"Inmobiliaria Q4 SpA",     vcb1:0,          vcb2:-22400000,  trei:-5300000,   resto:0 },
+  { id:"Q5",    nombre:"Inmobiliaria Q5 SpA",     vcb1:12300000,   vcb2:-31800000,  trei:0,          resto:-2100000 },
+  { id:"Q7",    nombre:"Inmobiliaria Q7 SpA",     vcb1:0,          vcb2:-14700000,  trei:-8900000,   resto:0 },
+  { id:"Q9",    nombre:"Inmobiliaria Q9 SpA",     vcb1:4200000,    vcb2:-19500000,  trei:0,          resto:0 },
+  { id:"Q10",   nombre:"Inmobiliaria Q10 SpA",    vcb1:0,          vcb2:-28600000,  trei:-6100000,   resto:0 },
+  { id:"VCB2II",nombre:"VCB Inversiones II",      vcb1:0,          vcb2:415000000,  trei:0,          resto:0 },
+  { id:"AAA",   nombre:"AAA-VCB",                 vcb1:52000000,   vcb2:-178000000, trei:0,          resto:0 },
+  { id:"SL",    nombre:"Santa Laura",             vcb1:0,          vcb2:-67000000,  trei:-23000000,  resto:0 },
+  { id:"AG",    nombre:"Activo Gerenciamiento",   vcb1:18500000,   vcb2:-45200000,  trei:0,          resto:0 },
+  { id:"WAV",   nombre:"Inv. Wave",               vcb1:0,          vcb2:-89000000,  trei:0,          resto:0 },
+  { id:"WAV2",  nombre:"Inv. Wave II",            vcb1:0,          vcb2:-134000000, trei:0,          resto:0 },
+  { id:"PLP",   nombre:"Inv. PLP",                vcb1:0,          vcb2:-56000000,  trei:-18000000,  resto:0 },
+  { id:"TSM",   nombre:"Inv. TSM",                vcb1:0,          vcb2:-71000000,  trei:0,          resto:0 },
+];
+
+const fmt = (n) => {
+  if (n === null || n === undefined || n === "" || isNaN(n)) return "–";
+  if (n === 0) return "–";
+  const abs = Math.abs(n);
+  const s = abs.toLocaleString("es-CL");
+  return n < 0 ? "−" + s : s;
+};
+const fmtEditable = (n) => {
+  if (!n) return "";
+  const abs = Math.abs(n);
+  const s = abs.toLocaleString("es-CL");
+  return n < 0 ? "-" + s : s;
+};
+const parseNum = (s) => {
+  if (!s) return 0;
+  return parseInt(String(s).replace(/[^\d-]/g,""), 10) || 0;
+};
+
+const tbody = document.getElementById("tblBase");
+excluidas.forEach((e, idx) => {
+  const total = e.vcb1 + e.vcb2 + e.trei + e.resto;
+  const totalClass = total < 0 ? " critico" : (total > 0 ? " ok" : "");
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td>${e.nombre}<small>${e.id}</small></td>
+    <td><input type="text" data-row="${idx}" data-col="vcb1" value="${fmtEditable(e.vcb1)}" placeholder="–"></td>
+    <td><input type="text" data-row="${idx}" data-col="vcb2" value="${fmtEditable(e.vcb2)}" placeholder="–"></td>
+    <td><input type="text" data-row="${idx}" data-col="trei" value="${fmtEditable(e.trei)}" placeholder="–"></td>
+    <td><input type="text" data-row="${idx}" data-col="resto" value="${fmtEditable(e.resto)}" placeholder="–"></td>
+    <td class="total${totalClass}" data-total="${idx}">${fmt(total)}</td>
+  `;
+  tbody.appendChild(tr);
+});
+
+tbody.addEventListener("input", (ev) => {
+  const inp = ev.target;
+  if (inp.tagName !== "INPUT") return;
+  const row = +inp.dataset.row;
+  const col = inp.dataset.col;
+  excluidas[row][col] = parseNum(inp.value);
+  const tot = excluidas[row].vcb1 + excluidas[row].vcb2 + excluidas[row].trei + excluidas[row].resto;
+  const cell = document.querySelector(`[data-total="${row}"]`);
+  cell.textContent = fmt(tot);
+  cell.className = "total" + (tot < 0 ? " critico" : (tot > 0 ? " ok" : ""));
+  showSaved("saved1");
+});
+tbody.addEventListener("blur", (ev) => {
+  const inp = ev.target;
+  if (inp.tagName !== "INPUT") return;
+  inp.value = fmtEditable(parseNum(inp.value));
+}, true);
+
+let ajusteCount = 0;
+const ajustesList = document.getElementById("ajustesList");
+const emptyAdj = document.getElementById("emptyAdj");
+const empresasGrupo = ["VCB Constructora","VCB Inversiones","TREI Inmobiliaria","Inmobiliaria Q6","Inmobiliaria Q8","Inmobiliaria Q11","Inmobiliaria Q12","Inmobiliaria Q14","Los Boldos"];
+const empresasExcl = excluidas.map(e => e.nombre);
+
+document.getElementById("btnAdd").addEventListener("click", () => {
+  emptyAdj.hidden = true;
+  ajusteCount++;
+  const row = document.createElement("div");
+  row.className = "ajuste-row";
+  row.innerHTML = `
+    <select><option value="" disabled selected>Empresa excluida…</option>${empresasExcl.map(n => `<option>${n}</option>`).join("")}</select>
+    <select><option value="" disabled selected>Contraparte…</option>${empresasGrupo.concat(empresasExcl).map(n => `<option>${n}</option>`).join("")}</select>
+    <input type="number" placeholder="Monto (CLP)">
+    <select><option>CxC</option><option>CxP</option></select>
+    <button class="btn-remove" aria-label="Quitar">×</button>
+  `;
+  row.querySelector(".btn-remove").addEventListener("click", () => {
+    row.remove();
+    if (!ajustesList.querySelector(".ajuste-row")) emptyAdj.hidden = false;
+  });
+  ajustesList.appendChild(row);
+});
+
+const corte = document.getElementById("corte");
+corte.value = new Date().toISOString().slice(0,10);
+
+document.getElementById("btnGen").addEventListener("click", () => {
+  const b = document.getElementById("btnGen");
+  const orig = b.innerHTML;
+  b.innerHTML = "Generando…";
+  b.disabled = true;
+  setTimeout(() => {
+    b.innerHTML = "✓ Descargado";
+    setTimeout(() => { b.innerHTML = orig; b.disabled = false; }, 1800);
+  }, 1400);
+});
+
+function showSaved(id) {
+  const el = document.getElementById(id);
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 1200);
+}
+</script>
