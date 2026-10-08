@@ -258,8 +258,8 @@ h1 { font-weight: 700; font-size: 22px; margin: 0 0 6px; }
 
   <div class="kpi-row">
     <div class="kpi" id="kpi1"><p class="kpi-label">Empresas totales</p><div class="kpi-value" data-k="empresas">–</div><div class="kpi-note" data-k="empresas-note">cargando…</div></div>
-    <div class="kpi ok" id="kpi2"><p class="kpi-label">Con libro propio</p><div class="kpi-value" data-k="libro">–</div><div class="kpi-note">+ aparecen como contraparte</div></div>
-    <div class="kpi" id="kpi3"><p class="kpi-label">Celdas con valor</p><div class="kpi-value" data-k="celdas">–</div><div class="kpi-note">al 30-jun-2026</div></div>
+    <div class="kpi ok" id="kpi2"><p class="kpi-label">Softland en vivo</p><div class="kpi-value" data-k="live">–</div><div class="kpi-note" data-k="live-note">cargando…</div></div>
+    <div class="kpi" id="kpi3"><p class="kpi-label">Celdas con valor</p><div class="kpi-value" data-k="celdas">–</div><div class="kpi-note" data-k="celdas-note">en vivo + snapshot junio</div></div>
     <div class="kpi warn" id="kpi4"><p class="kpi-label">Descuadres</p><div class="kpi-value" data-k="desc" style="color:var(--ambar);">–</div><div class="kpi-note">pares que no calzan</div></div>
     <div class="kpi" id="kpi5"><p class="kpi-label">Partidas de descalce</p><div class="kpi-value" data-k="part">–</div><div class="kpi-note">en hoja detalle</div></div>
   </div>
@@ -368,9 +368,20 @@ async function cargarTodo() {
 
 function renderKPIs() {
   document.querySelector('[data-k="empresas"]').textContent = kpis.empresas_total ?? empresas.length;
-  document.querySelector('[data-k="empresas-note"]').textContent = (kpis.empresas_nuevas || 0) + " nuevas detectadas";
-  document.querySelector('[data-k="libro"]').textContent = kpis.empresas_libro ?? 0;
+  document.querySelector('[data-k="empresas-note"]').textContent = (kpis.empresas_libro || 0) + " con libro propio";
+  document.querySelector('[data-k="live"]').textContent = kpis.celdas_softland_vivo ?? 0;
+  const sync = kpis.softland_ultima_sync;
+  if (sync) {
+    const d = new Date(sync);
+    const dias = ["dom","lun","mar","mié","jue","vie","sáb"];
+    const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+    document.querySelector('[data-k="live-note"]').textContent =
+      "Última sync: " + d.getDate() + "-" + meses[d.getMonth()] + " " + String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  }
   document.querySelector('[data-k="celdas"]').textContent = kpis.celdas_con_valor ?? valores.size;
+  const snap = (kpis.celdas_con_valor || 0) - (kpis.celdas_softland_vivo || 0);
+  document.querySelector('[data-k="celdas-note"]').textContent =
+    (kpis.celdas_softland_vivo || 0) + " en vivo · " + snap + " snapshot";
   document.querySelector('[data-k="desc"]').textContent = kpis.descuadres ?? descuadres.length;
   document.querySelector('[data-k="part"]').textContent = kpis.partidas ?? 0;
 }
