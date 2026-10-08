@@ -34,9 +34,40 @@ Portal interno para generar la matriz de cruces de cuentas intercompañía del G
 
 ## Stack
 
-- HTML + CSS + JS vanilla (sin build step).
-- Despliegue en Vercel (static).
-- Fuente de datos: Supabase.
+- HTML + CSS + JS vanilla (sin build step)
+- Despliegue en Vercel (static + 1 Serverless Function en `/api/config`)
+- Fuente de datos: Supabase (proyecto `Contabilidad - Finanzas`)
+
+## Variables de entorno (Vercel)
+
+El cliente de Supabase se inicializa leyendo `/api/config`, que a su vez
+lee variables de entorno. Antes del primer deploy, en Vercel → Settings →
+Environment Variables agregar:
+
+| Variable | Valor | Scopes |
+|---|---|---|
+| `SUPABASE_URL` | `https://xdislftwnamrlqqxybtm.supabase.co` | Production, Preview, Development |
+| `SUPABASE_ANON_KEY` | publishable key del proyecto (Supabase → Settings → API) | Production, Preview, Development |
+
+Después de agregarlas, hacer un redeploy desde Vercel (o un push) para que
+tomen efecto.
+
+## Whitelist de edición
+
+Las ediciones (saldos base y ajustes) pasan por RPCs SECURITY DEFINER que
+validan `auth.jwt() ->> 'email'` contra una whitelist en la función
+`public.mi_puede_editar()`. Para agregar un correo:
+
+```sql
+create or replace function public.mi_puede_editar()
+returns boolean language sql stable security definer set search_path = '' as $$
+  select coalesce((auth.jwt() ->> 'email') in (
+    'sebastianmendezveas@gmail.com',
+    'smendez@trei.cl'
+    -- agregar aquí
+  ), false);
+$$;
+```
 
 ## Marca
 

@@ -473,6 +473,50 @@ td input:focus {
   color: var(--ink-5);
   margin-top: 10px;
 }
+
+/* Skeleton y toast */
+.kpi-skel { color: var(--ink-6); font-weight: 400; letter-spacing: 0.05em; }
+.toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  max-width: 360px;
+  background: var(--negro-trei);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2);
+  z-index: 20;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity .2s, transform .2s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.toast.err  { background: var(--rojo-trei); }
+.toast.ok   { background: var(--verde-exito); }
+.pending-note {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ambar);
+  background: var(--ambar-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 10px;
+  border: 1px solid var(--ambar);
+}
+.loading-overlay {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,.7);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-4); font-size: 12px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+tbody tr.saving td input { background: var(--ambar-bg); }
+tbody tr.saved  td input { background: #e8f3eb; transition: background 1s; }
+.row-note { font-size: 10px; color: var(--ambar); margin-top: 2px; display: block; font-style: italic; font-weight: 400; }
 </style>
 
 <nav class="topnav">
@@ -496,24 +540,24 @@ td input:focus {
 
   <!-- KPIs de estado -->
   <div class="kpi-row">
-    <div class="kpi ok">
+    <div class="kpi ok" id="kpiSync">
       <p class="kpi-label">Softland en línea</p>
-      <div class="kpi-value">9<span style="font-size:16px;color:var(--ink-4);font-weight:400;"> / 9</span></div>
-      <div class="kpi-note">Última sync: hoy, 11:42</div>
+      <div class="kpi-value" data-k="empresas"><span class="kpi-skel">–</span></div>
+      <div class="kpi-note" data-k="sync">Cargando…</div>
     </div>
-    <div class="kpi ok">
+    <div class="kpi ok" id="kpiBase">
       <p class="kpi-label">Saldos base cargados</p>
-      <div class="kpi-value">15<span style="font-size:16px;color:var(--ink-4);font-weight:400;"> / 15</span></div>
+      <div class="kpi-value" data-k="excluidas"><span class="kpi-skel">–</span></div>
       <div class="kpi-note">Al 30-jun-2026</div>
     </div>
-    <div class="kpi">
+    <div class="kpi" id="kpiAjustes">
       <p class="kpi-label">Ajustes del período</p>
-      <div class="kpi-value">0</div>
-      <div class="kpi-note">Sin movimiento desde 1-jul</div>
+      <div class="kpi-value" data-k="ajustes"><span class="kpi-skel">–</span></div>
+      <div class="kpi-note" data-k="ajustes-note">Sin movimiento desde 1-jul</div>
     </div>
-    <div class="kpi warn">
+    <div class="kpi warn" id="kpiDescuadres">
       <p class="kpi-label">Descuadres a revisar</p>
-      <div class="kpi-value" style="color:var(--ambar);">3</div>
+      <div class="kpi-value" data-k="descuadres" style="color:var(--ambar);"><span class="kpi-skel">–</span></div>
       <div class="kpi-note">Pares con diferencia &gt; $1 MM</div>
     </div>
   </div>
@@ -584,114 +628,397 @@ td input:focus {
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="./config.js"></script>
 <script>
-const excluidas = [
-  { id:"Q2",    nombre:"Inmobiliaria Q2 SpA",     vcb1:0,          vcb2:-45000000,  trei:-12000000,  resto:0 },
-  { id:"Q3",    nombre:"Inmobiliaria Q3 SpA",     vcb1:8500000,    vcb2:-18200000,  trei:0,          resto:0 },
-  { id:"Q4",    nombre:"Inmobiliaria Q4 SpA",     vcb1:0,          vcb2:-22400000,  trei:-5300000,   resto:0 },
-  { id:"Q5",    nombre:"Inmobiliaria Q5 SpA",     vcb1:12300000,   vcb2:-31800000,  trei:0,          resto:-2100000 },
-  { id:"Q7",    nombre:"Inmobiliaria Q7 SpA",     vcb1:0,          vcb2:-14700000,  trei:-8900000,   resto:0 },
-  { id:"Q9",    nombre:"Inmobiliaria Q9 SpA",     vcb1:4200000,    vcb2:-19500000,  trei:0,          resto:0 },
-  { id:"Q10",   nombre:"Inmobiliaria Q10 SpA",    vcb1:0,          vcb2:-28600000,  trei:-6100000,   resto:0 },
-  { id:"VCB2II",nombre:"VCB Inversiones II",      vcb1:0,          vcb2:415000000,  trei:0,          resto:0 },
-  { id:"AAA",   nombre:"AAA-VCB",                 vcb1:52000000,   vcb2:-178000000, trei:0,          resto:0 },
-  { id:"SL",    nombre:"Santa Laura",             vcb1:0,          vcb2:-67000000,  trei:-23000000,  resto:0 },
-  { id:"AG",    nombre:"Activo Gerenciamiento",   vcb1:18500000,   vcb2:-45200000,  trei:0,          resto:0 },
-  { id:"WAV",   nombre:"Inv. Wave",               vcb1:0,          vcb2:-89000000,  trei:0,          resto:0 },
-  { id:"WAV2",  nombre:"Inv. Wave II",            vcb1:0,          vcb2:-134000000, trei:0,          resto:0 },
-  { id:"PLP",   nombre:"Inv. PLP",                vcb1:0,          vcb2:-56000000,  trei:-18000000,  resto:0 },
-  { id:"TSM",   nombre:"Inv. TSM",                vcb1:0,          vcb2:-71000000,  trei:0,          resto:0 },
-];
+// === Config Supabase (viene de /api/config, inyectado por Vercel) ===
+let sb;  // se inicializa en el arranque, abajo
 
+// === Helpers ===
 const fmt = (n) => {
   if (n === null || n === undefined || n === "" || isNaN(n)) return "–";
-  if (n === 0) return "–";
-  const abs = Math.abs(n);
-  const s = abs.toLocaleString("es-CL");
-  return n < 0 ? "−" + s : s;
+  const num = Number(n);
+  if (num === 0) return "–";
+  return (num < 0 ? "−" : "") + Math.abs(num).toLocaleString("es-CL");
 };
 const fmtEditable = (n) => {
-  if (!n) return "";
-  const abs = Math.abs(n);
-  const s = abs.toLocaleString("es-CL");
-  return n < 0 ? "-" + s : s;
+  const num = Number(n);
+  if (!num) return "";
+  return (num < 0 ? "-" : "") + Math.abs(num).toLocaleString("es-CL");
 };
 const parseNum = (s) => {
   if (!s) return 0;
   return parseInt(String(s).replace(/[^\d-]/g,""), 10) || 0;
 };
+const fmtFecha = (iso) => {
+  if (!iso) return "–";
+  const d = new Date(iso);
+  const dias = ["dom","lun","mar","mié","jue","vie","sáb"];
+  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return `${d.getDate()}-${meses[d.getMonth()]}, ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+};
+function toast(msg, kind="ok") {
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast"; el.className = "toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.className = "toast " + kind + " show";
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 3200);
+}
 
+// === Estado ===
+let saldos = [];        // [{codigo, nombre, vs_vcb1, vs_vcb2, vs_trei, vs_resto_grupo, total, nota, ...}]
+let empresasGrupo = []; // [{codigo, razon_social, rut}]
+let ajustes = [];       // [{id, empresa, contraparte, monto, tipo, fecha_evento, nota}]
+let matriz = [];        // [{reportante, contraparte, saldo_clp, cxc, cxp}]
+let descuadres = [];    // [{empresa_a, empresa_b, saldo_a_b, saldo_b_a, descuadre}]
+
+// === Carga inicial ===
+async function cargarTodo() {
+  try {
+    const [kpisR, empsR, saldosR, ajustesR, matrizR, descR] = await Promise.all([
+      sb.from("v_mi_kpis").select("*").maybeSingle(),
+      sb.from("v_mi_empresas_grupo").select("*"),
+      sb.from("v_mi_saldos_base").select("*"),
+      sb.from("v_mi_ajustes").select("*"),
+      sb.from("v_mi_matriz_cruces").select("*"),
+      sb.from("v_mi_descuadres").select("*"),
+    ]);
+    if (kpisR.error) throw kpisR.error;
+    if (empsR.error) throw empsR.error;
+    if (saldosR.error) throw saldosR.error;
+    if (ajustesR.error) throw ajustesR.error;
+    if (matrizR.error) throw matrizR.error;
+    if (descR.error) throw descR.error;
+
+    empresasGrupo = empsR.data || [];
+    saldos        = saldosR.data || [];
+    ajustes       = ajustesR.data || [];
+    matriz        = matrizR.data || [];
+    descuadres    = descR.data || [];
+
+    renderKPIs(kpisR.data || {});
+    renderSaldos();
+    renderAjustes();
+  } catch (e) {
+    console.error(e);
+    toast("Error cargando datos: " + (e.message || e), "err");
+  }
+}
+
+function renderKPIs(k) {
+  const empresas = k.empresas_con_libro_propio ?? empresasGrupo.length;
+  const totalEmp = k.empresas_grupo ?? empresas;
+  document.querySelector('[data-k="empresas"]').innerHTML =
+    `${empresas}<span style="font-size:16px;color:var(--ink-4);font-weight:400;"> / ${totalEmp}</span>`;
+  document.querySelector('[data-k="sync"]').textContent =
+    k.ultima_sync ? `Última sync: ${fmtFecha(k.ultima_sync)}` : "Sin sync registrada";
+
+  const base    = k.excluidas_cargadas ?? saldos.length;
+  const baseTot = k.excluidas_totales ?? 15;
+  document.querySelector('[data-k="excluidas"]').innerHTML =
+    `${base}<span style="font-size:16px;color:var(--ink-4);font-weight:400;"> / ${baseTot}</span>`;
+
+  const aj = k.ajustes_vigentes ?? ajustes.length;
+  document.querySelector('[data-k="ajustes"]').textContent = aj;
+  document.querySelector('[data-k="ajustes-note"]').textContent =
+    aj === 0 ? "Sin movimiento desde 1-jul" : `${aj} registrados en el período`;
+
+  const d = k.descuadres_grandes ?? descuadres.filter(x => Math.abs(x.descuadre) > 1_000_000).length;
+  document.querySelector('[data-k="descuadres"]').textContent = d;
+}
+
+// === Sección 1: saldos base ===
 const tbody = document.getElementById("tblBase");
-excluidas.forEach((e, idx) => {
-  const total = e.vcb1 + e.vcb2 + e.trei + e.resto;
-  const totalClass = total < 0 ? " critico" : (total > 0 ? " ok" : "");
-  const tr = document.createElement("tr");
-  tr.innerHTML = `
-    <td>${e.nombre}<small>${e.id}</small></td>
-    <td><input type="text" data-row="${idx}" data-col="vcb1" value="${fmtEditable(e.vcb1)}" placeholder="–"></td>
-    <td><input type="text" data-row="${idx}" data-col="vcb2" value="${fmtEditable(e.vcb2)}" placeholder="–"></td>
-    <td><input type="text" data-row="${idx}" data-col="trei" value="${fmtEditable(e.trei)}" placeholder="–"></td>
-    <td><input type="text" data-row="${idx}" data-col="resto" value="${fmtEditable(e.resto)}" placeholder="–"></td>
-    <td class="total${totalClass}" data-total="${idx}">${fmt(total)}</td>
-  `;
-  tbody.appendChild(tr);
-});
+function renderSaldos() {
+  tbody.innerHTML = "";
+  saldos.forEach((e, idx) => {
+    const total = (e.vs_vcb1||0) + (e.vs_vcb2||0) + (e.vs_trei||0) + (e.vs_resto_grupo||0);
+    const totalClass = total < 0 ? " critico" : (total > 0 ? " ok" : "");
+    const pending = (e.nota || "").includes("Datos de prueba");
+    const tr = document.createElement("tr");
+    tr.dataset.codigo = e.codigo;
+    tr.innerHTML = `
+      <td>${e.nombre}<small>${e.codigo}${pending ? ' <span class="row-note">· datos de prueba</span>' : ''}</small></td>
+      <td><input type="text" data-row="${idx}" data-col="vs_vcb1" value="${fmtEditable(e.vs_vcb1)}" placeholder="–"></td>
+      <td><input type="text" data-row="${idx}" data-col="vs_vcb2" value="${fmtEditable(e.vs_vcb2)}" placeholder="–"></td>
+      <td><input type="text" data-row="${idx}" data-col="vs_trei" value="${fmtEditable(e.vs_trei)}" placeholder="–"></td>
+      <td><input type="text" data-row="${idx}" data-col="vs_resto_grupo" value="${fmtEditable(e.vs_resto_grupo)}" placeholder="–"></td>
+      <td class="total${totalClass}" data-total="${idx}">${fmt(total)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Autosave con debounce
+const pending = new Map();   // codigo -> timer
+function marcarRow(codigo, cls) {
+  const tr = tbody.querySelector(`tr[data-codigo="${codigo}"]`);
+  if (!tr) return;
+  tr.classList.remove("saving","saved");
+  if (cls) tr.classList.add(cls);
+}
+
+async function guardarSaldo(codigo) {
+  const row = saldos.find(s => s.codigo === codigo);
+  if (!row) return;
+  marcarRow(codigo, "saving");
+  try {
+    const { data, error } = await sb.rpc("mi_actualizar_saldo", {
+      p_codigo: codigo,
+      p_vs_vcb1: row.vs_vcb1 || 0,
+      p_vs_vcb2: row.vs_vcb2 || 0,
+      p_vs_trei: row.vs_trei || 0,
+      p_vs_resto_grupo: row.vs_resto_grupo || 0,
+    });
+    if (error) throw error;
+    marcarRow(codigo, "saved");
+    showSaved("saved1");
+    setTimeout(() => marcarRow(codigo, null), 1500);
+  } catch (e) {
+    marcarRow(codigo, null);
+    const code = e.code || "";
+    if (code === "42501") {
+      toast("No tienes permiso para editar. Agrega tu correo a la whitelist en Supabase.", "err");
+    } else {
+      toast("No se pudo guardar: " + (e.message || e), "err");
+    }
+    console.error(e);
+  }
+}
 
 tbody.addEventListener("input", (ev) => {
   const inp = ev.target;
   if (inp.tagName !== "INPUT") return;
   const row = +inp.dataset.row;
   const col = inp.dataset.col;
-  excluidas[row][col] = parseNum(inp.value);
-  const tot = excluidas[row].vcb1 + excluidas[row].vcb2 + excluidas[row].trei + excluidas[row].resto;
-  const cell = document.querySelector(`[data-total="${row}"]`);
+  const codigo = saldos[row].codigo;
+  saldos[row][col] = parseNum(inp.value);
+  const tot = (saldos[row].vs_vcb1||0) + (saldos[row].vs_vcb2||0) + (saldos[row].vs_trei||0) + (saldos[row].vs_resto_grupo||0);
+  const cell = tbody.querySelector(`[data-total="${row}"]`);
   cell.textContent = fmt(tot);
   cell.className = "total" + (tot < 0 ? " critico" : (tot > 0 ? " ok" : ""));
-  showSaved("saved1");
+
+  if (pending.has(codigo)) clearTimeout(pending.get(codigo));
+  pending.set(codigo, setTimeout(() => {
+    pending.delete(codigo);
+    guardarSaldo(codigo);
+  }, 900));
 });
+
 tbody.addEventListener("blur", (ev) => {
   const inp = ev.target;
   if (inp.tagName !== "INPUT") return;
   inp.value = fmtEditable(parseNum(inp.value));
 }, true);
 
-let ajusteCount = 0;
+// === Sección 2: ajustes ===
 const ajustesList = document.getElementById("ajustesList");
-const emptyAdj = document.getElementById("emptyAdj");
-const empresasGrupo = ["VCB Constructora","VCB Inversiones","TREI Inmobiliaria","Inmobiliaria Q6","Inmobiliaria Q8","Inmobiliaria Q11","Inmobiliaria Q12","Inmobiliaria Q14","Los Boldos"];
-const empresasExcl = excluidas.map(e => e.nombre);
+const emptyAdj    = document.getElementById("emptyAdj");
 
-document.getElementById("btnAdd").addEventListener("click", () => {
+function renderAjustes() {
+  ajustesList.querySelectorAll(".ajuste-row").forEach(r => r.remove());
+  if (!ajustes.length) {
+    emptyAdj.hidden = false;
+    return;
+  }
   emptyAdj.hidden = true;
-  ajusteCount++;
+  ajustes.forEach(a => insertarAjusteRow(a));
+}
+
+function insertarAjusteRow(a) {
+  const excluidasOps = saldos.map(s => `<option ${a.empresa===s.codigo?'selected':''} value="${s.codigo}">${s.nombre}</option>`).join("");
+  const grupoOps    = empresasGrupo.map(e => `<option ${a.contraparte===e.codigo?'selected':''} value="${e.codigo}">${e.razon_social}</option>`).join("");
   const row = document.createElement("div");
   row.className = "ajuste-row";
+  row.dataset.id = a.id || "";
   row.innerHTML = `
-    <select><option value="" disabled selected>Empresa excluida…</option>${empresasExcl.map(n => `<option>${n}</option>`).join("")}</select>
-    <select><option value="" disabled selected>Contraparte…</option>${empresasGrupo.concat(empresasExcl).map(n => `<option>${n}</option>`).join("")}</select>
-    <input type="number" placeholder="Monto (CLP)">
-    <select><option>CxC</option><option>CxP</option></select>
+    <select class="aj-empresa" ${a.id?'disabled':''}>
+      <option value="" disabled ${!a.empresa?'selected':''}>Empresa excluida…</option>${excluidasOps}
+    </select>
+    <select class="aj-contraparte" ${a.id?'disabled':''}>
+      <option value="" disabled ${!a.contraparte?'selected':''}>Contraparte…</option>${grupoOps + excluidasOps}
+    </select>
+    <input class="aj-monto" type="number" placeholder="Monto (CLP)" value="${a.monto ?? ''}" ${a.id?'disabled':''}>
+    <select class="aj-tipo" ${a.id?'disabled':''}>
+      <option value="CxC" ${a.tipo==='CxC'?'selected':''}>CxC</option>
+      <option value="CxP" ${a.tipo==='CxP'?'selected':''}>CxP</option>
+    </select>
     <button class="btn-remove" aria-label="Quitar">×</button>
   `;
-  row.querySelector(".btn-remove").addEventListener("click", () => {
-    row.remove();
+  row.querySelector(".btn-remove").addEventListener("click", () => quitarAjuste(row, a.id));
+  // Si es fila nueva (sin id), el botón confirma al apretar enter o perder foco
+  if (!a.id) {
+    row.querySelector(".aj-monto").addEventListener("blur", () => intentarGuardarNuevo(row));
+    row.querySelector(".aj-contraparte").addEventListener("change", () => intentarGuardarNuevo(row));
+    row.querySelector(".aj-tipo").addEventListener("change", () => intentarGuardarNuevo(row));
+  }
+  ajustesList.insertBefore(row, document.getElementById("btnAdd"));
+  emptyAdj.hidden = true;
+}
+
+async function intentarGuardarNuevo(row) {
+  if (row.dataset.id) return;  // ya guardado
+  const empresa = row.querySelector(".aj-empresa").value;
+  const contraparte = row.querySelector(".aj-contraparte").value;
+  const monto = parseInt(row.querySelector(".aj-monto").value) || 0;
+  const tipo = row.querySelector(".aj-tipo").value;
+  if (!empresa || !contraparte || !monto || !tipo) return;
+
+  try {
+    const { data, error } = await sb.rpc("mi_agregar_ajuste", {
+      p_empresa: empresa,
+      p_contraparte: contraparte,
+      p_monto: monto,
+      p_tipo: tipo,
+    });
+    if (error) throw error;
+    const nuevo = Array.isArray(data) ? data[0] : data;
+    row.dataset.id = nuevo.id;
+    row.querySelectorAll("select, input").forEach(el => { if (!el.classList.contains("btn-remove")) el.disabled = true; });
+    ajustes.unshift(nuevo);
+    toast("Ajuste guardado", "ok");
+    actualizarKpiAjustes();
+  } catch (e) {
+    const code = e.code || "";
+    if (code === "42501") {
+      toast("No tienes permiso para agregar ajustes.", "err");
+    } else {
+      toast("No se pudo guardar: " + (e.message || e), "err");
+    }
+    console.error(e);
+  }
+}
+
+async function quitarAjuste(rowEl, id) {
+  if (!id) { // fila nueva no guardada
+    rowEl.remove();
     if (!ajustesList.querySelector(".ajuste-row")) emptyAdj.hidden = false;
-  });
-  ajustesList.appendChild(row);
+    return;
+  }
+  try {
+    const { data, error } = await sb.rpc("mi_quitar_ajuste", { p_id: id });
+    if (error) throw error;
+    ajustes = ajustes.filter(x => x.id !== id);
+    rowEl.remove();
+    if (!ajustesList.querySelector(".ajuste-row")) emptyAdj.hidden = false;
+    toast("Ajuste eliminado", "ok");
+    actualizarKpiAjustes();
+  } catch (e) {
+    toast("No se pudo eliminar: " + (e.message || e), "err");
+  }
+}
+
+function actualizarKpiAjustes() {
+  const n = ajustes.length;
+  document.querySelector('[data-k="ajustes"]').textContent = n;
+  document.querySelector('[data-k="ajustes-note"]').textContent =
+    n === 0 ? "Sin movimiento desde 1-jul" : `${n} registrados en el período`;
+}
+
+document.getElementById("btnAdd").addEventListener("click", () => {
+  insertarAjusteRow({ empresa:"", contraparte:"", monto:"", tipo:"CxC" });
 });
 
-const corte = document.getElementById("corte");
-corte.value = new Date().toISOString().slice(0,10);
+// === Sección 3: generar XLSX ===
+const corteInput = document.getElementById("corte");
+corteInput.value = new Date().toISOString().slice(0,10);
 
-document.getElementById("btnGen").addEventListener("click", () => {
+function construirMatrizXLSX() {
+  const codes = empresasGrupo.map(e => e.codigo);
+  const nombres = {};
+  empresasGrupo.forEach(e => nombres[e.codigo] = e.razon_social);
+
+  // Hoja 1: Matriz 9x9 (en vivo)
+  const header = ["Reportante \\ Contraparte", ...codes.map(c => nombres[c] || c)];
+  const rows = [header];
+  for (const rep of codes) {
+    const row = [nombres[rep] || rep];
+    for (const cp of codes) {
+      if (rep === cp) { row.push(""); continue; }
+      const hit = matriz.find(m => m.reportante === rep && m.contraparte === cp);
+      row.push(hit ? hit.saldo_clp : 0);
+    }
+    rows.push(row);
+  }
+
+  // Hoja 2: Descuadres
+  const desc = [["Empresa A","Empresa B","Saldo A→B","Saldo B→A","Descuadre","Estado"]];
+  for (const d of descuadres) {
+    const abs = Math.abs(d.descuadre || 0);
+    const estado = abs <= 1_000_000 ? "Calza (±$1 MM)" : "DESCUADRE";
+    desc.push([nombres[d.empresa_a] || d.empresa_a, nombres[d.empresa_b] || d.empresa_b,
+               d.saldo_a_b || 0, d.saldo_b_a || 0, d.descuadre || 0, estado]);
+  }
+
+  // Hoja 3: Saldos base de las 15
+  const base = [["Código","Empresa","vs. VCB Constructora","vs. VCB Inversiones","vs. TREI","Resto del grupo","Total","Nota","Actualizado"]];
+  for (const s of saldos) {
+    base.push([s.codigo, s.nombre, s.vs_vcb1||0, s.vs_vcb2||0, s.vs_trei||0, s.vs_resto_grupo||0, s.total||0,
+               s.nota || "", s.actualizado_en ? s.actualizado_en.slice(0,10) : ""]);
+  }
+
+  // Hoja 4: Ajustes
+  const aj = [["Fecha","Empresa","Contraparte","Monto","Tipo","Nota","Creado por"]];
+  for (const a of ajustes) {
+    aj.push([a.fecha_evento, a.empresa, a.contraparte, a.monto, a.tipo, a.nota || "", a.creado_por || ""]);
+  }
+
+  // Hoja 5: Metodología
+  const meto = [
+    ["Fecha de corte", corteInput.value],
+    ["Fuente", "Supabase · Contabilidad - Finanzas · esquema grupo (replica Softland)"],
+    ["Empresas con libro propio", empresasGrupo.length],
+    ["Cuentas incluidas", "1-1-03-102, 2-1-02-103, 1-1-03-108, 1-1-38-102, 1-3-01-101"],
+    ["Filtros", "cpbest = 'V' (vigentes) · cpbnormatrib = 'S' (solo tributario)"],
+    ["Identificación contraparte", "Por RUT en tabla auxiliares vs tabla empresas"],
+    ["Saldos excluidas (15)", "Mantenidos manualmente en el portal (saldos_base_excluidas)"],
+    ["Ajustes excluidas", `${ajustes.length} registrados en el período`],
+    ["Generado el", new Date().toLocaleString("es-CL")],
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Matriz " + corteInput.value);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(desc), "Descuadres");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(base), "Saldos base (15)");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aj),   "Ajustes");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(meto), "Metodología");
+  return wb;
+}
+
+document.getElementById("btnGen").addEventListener("click", async () => {
   const b = document.getElementById("btnGen");
   const orig = b.innerHTML;
   b.innerHTML = "Generando…";
   b.disabled = true;
-  setTimeout(() => {
+  try {
+    // Recargo matriz y descuadres por si hubo cambios
+    const [matrizR, descR] = await Promise.all([
+      sb.from("v_mi_matriz_cruces").select("*"),
+      sb.from("v_mi_descuadres").select("*"),
+    ]);
+    if (matrizR.error) throw matrizR.error;
+    if (descR.error) throw descR.error;
+    matriz = matrizR.data || [];
+    descuadres = descR.data || [];
+
+    const wb = construirMatrizXLSX();
+    const nombre = `Matriz_VCB_${corteInput.value}.xlsx`;
+    XLSX.writeFile(wb, nombre);
     b.innerHTML = "✓ Descargado";
-    setTimeout(() => { b.innerHTML = orig; b.disabled = false; }, 1800);
-  }, 1400);
+    toast("Matriz generada: " + nombre, "ok");
+  } catch (e) {
+    b.innerHTML = "⚠ Error";
+    toast("No se pudo generar: " + (e.message || e), "err");
+    console.error(e);
+  } finally {
+    setTimeout(() => { b.innerHTML = orig; b.disabled = false; }, 2000);
+  }
 });
 
 function showSaved(id) {
@@ -700,4 +1027,16 @@ function showSaved(id) {
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove("show"), 1200);
 }
+
+// === Arranque ===
+(async () => {
+  try {
+    const cfg = await window.MATRIZ_CFG_READY;
+    sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    cargarTodo();
+  } catch (e) {
+    toast("No se pudo inicializar la conexión. Revisa las env vars en Vercel.", "err");
+    console.error(e);
+  }
+})();
 </script>
