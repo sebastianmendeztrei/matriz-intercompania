@@ -649,6 +649,198 @@ document.getElementById("btn-gen").addEventListener("click", async () => {
   }
 });
 
+// ===== Carga de informe Softland por empresa (Estado de Cuenta Auxiliares) =====
+// Boton flotante + modal: parsea saldos 1-1-03-102 (CxC) y 2-1-02-103 (CxP) por auxiliar,
+// netea (saldo CxC + saldo CxP, convencion Debe-Haber de Softland) y guarda via mi2_set_valor.
+// Ademas bloquea la edicion manual en filas cuya empresa tiene libro vivo (codigo_softland).
+(() => {
+  const css = document.createElement('style');
+  css.textContent =
+    '.mi2-fab{position:fixed;bottom:24px;right:24px;background:var(--rojo-trei);color:#fff;border:none;border-radius:999px;padding:12px 20px;font:600 13px inherit;font-family:inherit;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.18);z-index:50}' +
+    '.mi2-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;z-index:60;padding:40px 20px;overflow:auto}' +
+    '.mi2-ov.open{display:flex}' +
+    '.mi2-mod{background:#fff;border-radius:8px;max-width:1040px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)}' +
+    '.mi2-mod h2{margin:0 0 4px;font-size:18px}.mi2-mod .lede{color:var(--ink-3);margin:0 0 18px}' +
+    '.mi2-mod label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:var(--ink-2)}' +
+    '.mi2-mod .row{display:flex;gap:12px}.mi2-mod .row>div{flex:1}' +
+    '.mi2-mod select,.mi2-mod input[type=file]{width:100%;padding:8px;border:1px solid var(--rule);border-radius:4px;font-family:inherit;font-size:13px}' +
+    '.mi2-mod button{padding:8px 16px;border:none;border-radius:4px;font-family:inherit;font-size:13px;cursor:pointer;font-weight:500}' +
+    '.mi2-mod .bp{background:var(--rojo-trei);color:#fff}.mi2-mod .bg{background:transparent;color:var(--ink-3)}' +
+    '.mi2-mod .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}' +
+    '.mi2-mod table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}' +
+    '.mi2-mod th,.mi2-mod td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--rule-soft)}' +
+    '.mi2-mod th{background:#fafafa;font-size:11px;text-transform:uppercase}' +
+    '.mi2-mod td.num,.mi2-mod th.num{text-align:right;font-variant-numeric:tabular-nums}' +
+    '.mi2-mod td select,.mi2-mod td input{padding:4px 6px;font-size:12px;width:auto;border:1px solid var(--rule);border-radius:3px}' +
+    '.mi2-pill{display:inline-block;padding:1px 6px;font-size:10px;border-radius:3px;margin-left:4px}' +
+    '.mi2-pill.ok{background:var(--est-cuadrado-bg);color:var(--est-cuadrado-tx)}.mi2-pill.err{background:var(--est-descuadrado-bg);color:var(--est-descuadrado-tx)}' +
+    '.mi2-sum{background:var(--rojo-trei-fondo);border:1px solid #fcd5dd;padding:10px 12px;border-radius:4px;font-size:12px}' +
+    'tr.mi2-live td input{background:#fafafa;color:var(--ink-3);cursor:not-allowed}';
+  document.head.appendChild(css);
+
+  const fab = document.createElement('button');
+  fab.className = 'mi2-fab';
+  fab.textContent = '+ Cargar informe Softland';
+  document.body.appendChild(fab);
+
+  const ov = document.createElement('div');
+  ov.className = 'mi2-ov';
+  ov.innerHTML =
+    '<div class="mi2-mod">' +
+    '<h2>Cargar informe Softland</h2>' +
+    '<p class="lede">Sube el Excel "Informe Estado de Cuenta Auxiliares" de una empresa. Se leen los saldos de 1-1-03-102 (CxC) y 2-1-02-103 (CxP) de cada auxiliar, se netean y se guardan en la fila de la empresa elegida.</p>' +
+    '<div class="row"><div><label>Empresa reportante (duena del libro)</label><select id="mi2-rep"></select></div>' +
+    '<div><label>Archivo .xlsx</label><input type="file" id="mi2-file" accept=".xlsx,.xls"></div></div>' +
+    '<div class="actions"><button class="bg" id="mi2-close">Cancelar</button><button class="bp" id="mi2-analyze">Analizar</button></div>' +
+    '<div id="mi2-result"></div></div>';
+  document.body.appendChild(ov);
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const fmtN = (n) => (n < 0 ? '\u2212' : '') + Math.abs(n).toLocaleString('es-CL');
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  const cerrar = () => { ov.classList.remove('open'); $('mi2-result').innerHTML = ''; $('mi2-file').value = ''; };
+  $('mi2-close').onclick = cerrar;
+  ov.addEventListener('click', (e) => { if (e.target === ov) cerrar(); });
+  fab.onclick = () => {
+    $('mi2-rep').innerHTML = empresas.map(e => '<option value="' + esc(e.codigo) + '">' + esc(e.nombre) + (e.codigo_softland ? ' (libro vivo)' : '') + '</option>').join('');
+    ov.classList.add('open');
+  };
+
+  // Alias explicitos razon social -> codigo de la matriz (se prueban antes que el match difuso)
+  const ALIAS = [
+    ['vcbconstructora', 'VCB1'], ['vcbinversionesii', 'VCB2II'], ['vcbinversiones', 'VCB2'],
+    ['treiinmob', 'TREI'], ['losboldos', 'BOLDOS'], ['altomontemar', 'ALM'],
+    ['bcasesorias', 'BCA'], ['bcdesarrollo', 'BCD'], ['santalaura', 'SL'], ['santaluisa', 'STL'],
+    ['activogerenciamiento', 'AG'], ['bhinversiones', 'BH'], ['viconsa', 'VIC'],
+    ['ivcentenario', 'IVCEN'], ['lasaraucarias', 'LARA']
+  ];
+  function porAlias(n) {
+    const q = n.match(/inmobiliariaq(\d+)/);
+    if (q && empresas.some(e => e.codigo === 'Q' + q[1])) return 'Q' + q[1];
+    for (const [k, c] of ALIAS) if (n.includes(k) && empresas.some(e => e.codigo === c)) return c;
+    return null;
+  }
+  function porNombre(n, excluir) {
+    let best = null, score = 0;
+    for (const e of empresas) {
+      if (e.codigo === excluir) continue;
+      const en = norm(e.nombre).replace(/nuevo$/, '');
+      const core = en.replace(/^(inv|inm|inmob)/, '');
+      for (const k of [en, core]) if (k.length >= 4 && n.includes(k) && k.length > score) { best = e.codigo; score = k.length; }
+    }
+    return best;
+  }
+  // Detecta la empresa duena del libro desde el encabezado (fila 1 del informe)
+  function detectarReportante(rows) {
+    const cab = norm(rows[0] && rows[0][0]);
+    if (!cab) return null;
+    return porAlias(cab) || porNombre(cab, null);
+  }
+
+  function parseSoftland(rows) {
+    const auxes = [];
+    let cur = null;
+    for (const row of rows) {
+      const a = String(row[0] == null ? '' : row[0]).trim();
+      const b = String(row[1] == null ? '' : row[1]).trim();
+      if (a.startsWith('C\u00f3digo:') || a.startsWith('Codigo:')) {
+        if (cur) auxes.push(cur);
+        cur = { rut: b, nombre: String(row[4] || '').trim(), cxc: 0, cxp: 0 };
+        continue;
+      }
+      if (!cur) continue;
+      if (a === 'TOTAL' && (b === '1-1-03-102' || b === '2-1-02-103')) {
+        const saldo = Number(row[12]) || 0;
+        if (b === '1-1-03-102') cur.cxc = saldo; else cur.cxp = saldo;
+      }
+    }
+    if (cur) auxes.push(cur);
+    auxes.forEach(x => x.neto = x.cxc + x.cxp);
+    return auxes;
+  }
+
+  // Sugiere la empresa de la matriz (v_mi2_empresas no trae RUT): alias explicito, luego nombre
+  function sugerir(aux, rep) {
+    const n = norm(aux.nombre);
+    const c = porAlias(n) || porNombre(n, rep);
+    return c === rep ? null : c;
+  }
+
+  $('mi2-analyze').onclick = async () => {
+    const file = $('mi2-file').files[0];
+    if (!file) { toast('Elige el archivo del informe', 'err'); return; }
+    const btn = $('mi2-analyze');
+    btn.disabled = true; btn.textContent = 'Analizando\u2026';
+    try {
+      const wb = XLSX.read(await file.arrayBuffer(), {type: 'array'});
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1, defval: null, raw: true});
+      const detectado = detectarReportante(rows);
+      if (detectado) $('mi2-rep').value = detectado;
+      const rep = $('mi2-rep').value;
+      const repEmp = empresas.find(e => e.codigo === rep) || {};
+      const auxes = parseSoftland(rows);
+      if (!auxes.length) throw new Error('No se encontraron auxiliares. Verifica que sea un Estado de Cuenta Auxiliares de Softland.');
+      const total = auxes.reduce((s, a) => s + a.neto, 0);
+      let html = '<div class="mi2-sum"><b>' + auxes.length + '</b> auxiliares en el libro de <b>' + esc(repEmp.nombre || rep) + '</b>' +
+        (detectado ? ' (detectado desde el encabezado: ' + esc(rows[0][0]) + ')' : '') +
+        '. Neto total de la fila: <b>' + fmtN(total) + '</b>. Positivo = la contraparte le debe a ' + esc(repEmp.nombre || rep) + '; negativo = ' + esc(repEmp.nombre || rep) + ' le debe a la contraparte.' +
+        (repEmp.codigo_softland ? '<br><b>Ojo:</b> esta empresa tiene libro vivo; el proximo sync puede sobrescribir lo que cargues.' : '') + '</div>';
+      html += '<table><thead><tr><th>RUT</th><th>Nombre en informe</th><th class="num">Saldo CxC</th><th class="num">Saldo CxP</th><th class="num">Neto</th><th>Contraparte en matriz</th><th class="num">Monto a guardar</th></tr></thead><tbody>';
+      auxes.forEach((a, i) => {
+        const sug = sugerir(a, rep);
+        html += '<tr><td>' + esc(a.rut) + '</td><td>' + esc(a.nombre) + '</td>' +
+          '<td class="num">' + fmtN(a.cxc) + '</td><td class="num">' + fmtN(a.cxp) + '</td><td class="num"><b>' + fmtN(a.neto) + '</b></td>' +
+          '<td><select data-i="' + i + '"><option value="">\u2014 no cargar \u2014</option>' +
+          empresas.filter(e => e.codigo !== rep).map(e => '<option value="' + esc(e.codigo) + '"' + (e.codigo === sug ? ' selected' : '') + '>' + esc(e.nombre) + '</option>').join('') +
+          '</select>' + (sug ? '<span class="mi2-pill ok">auto</span>' : '<span class="mi2-pill err">elegir</span>') + '</td>' +
+          '<td class="num"><input data-i="' + i + '" value="' + fmtN(a.neto) + '" style="width:140px;text-align:right"></td></tr>';
+      });
+      html += '</tbody></table><div class="actions"><button class="bg" id="mi2-back">Volver</button><button class="bp" id="mi2-save">Guardar en la matriz</button></div>';
+      $('mi2-result').innerHTML = html;
+      $('mi2-back').onclick = () => { $('mi2-result').innerHTML = ''; };
+      $('mi2-save').onclick = async () => {
+        const sb_ = sb;
+        const save = $('mi2-save');
+        save.disabled = true; save.textContent = 'Guardando\u2026';
+        let ok = 0, skip = 0, err = 0;
+        for (let i = 0; i < auxes.length; i++) {
+          const cp = $('mi2-result').querySelector('select[data-i="' + i + '"]').value;
+          const monto = parseNum($('mi2-result').querySelector('input[data-i="' + i + '"]').value);
+          if (!cp || monto === null) { skip++; continue; }
+          try {
+            const r = monto === 0
+              ? await sb_.rpc('mi2_quitar_valor', {p_reportante: rep, p_contraparte: cp})
+              : await sb_.rpc('mi2_set_valor', {p_reportante: rep, p_contraparte: cp, p_monto: monto});
+            if (r.error) throw r.error;
+            ok++;
+          } catch (e) { console.error(e); err++; }
+        }
+        toast('Informe cargado: ' + ok + ' celdas guardadas, ' + skip + ' omitidas' + (err ? ', ' + err + ' con error' : ''), err ? 'err' : 'ok');
+        cerrar();
+        cargarTodo();
+      };
+    } catch (e) {
+      console.error(e);
+      toast('No se pudo leer el informe: ' + (e.message || e), 'err');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Analizar';
+    }
+  };
+
+  // Bloqueo de edicion manual en filas con libro vivo
+  const lock = () => {
+    const vivos = new Set(empresas.filter(e => e.codigo_softland).map(e => e.codigo));
+    document.querySelectorAll('.matrix tbody tr[data-rep]').forEach(tr => {
+      if (!vivos.has(tr.dataset.rep) || tr.classList.contains('mi2-live')) return;
+      tr.classList.add('mi2-live');
+      tr.querySelectorAll('td input').forEach(inp => { inp.readOnly = true; inp.title = 'Libro vivo en Softland: se actualiza solo, no se edita a mano'; });
+    });
+  };
+  const wrap = document.getElementById('matrix-wrap');
+  if (wrap) new MutationObserver(lock).observe(wrap, {childList: true, subtree: true});
+})();
+
 // Arranque
 (async () => {
   try {
