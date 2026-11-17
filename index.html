@@ -331,7 +331,7 @@ const fmt = (n) => {
 };
 const parseNum = (s) => {
   if (s === "" || s === null || s === undefined) return null;
-  const n = parseInt(String(s).replace(/[^\d\-]/g, ""), 10);
+  const n = parseInt(String(s).replace(/[^\d\-−]/g, "").replace(/−/g, "-"), 10);
   return isNaN(n) ? null : n;
 };
 function toast(msg, kind="ok") {
